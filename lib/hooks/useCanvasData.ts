@@ -2,14 +2,14 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { CanvasAPI } from '@/lib/canvas/api';
-import type { CanvasCourse, CanvasAssignment } from '@/types/canvas';
+import type { CanvasCourse, CanvasAssignment, CanvasSubmission } from '@/types/canvas';
 
 const canvasAPI = new CanvasAPI();
 
-export function useUserCourses(userId: string) {
+export function useUserCourses(userId: string, enrollmentType?: string) {
   return useQuery<CanvasCourse[]>({
-    queryKey: ['courses', userId],
-    queryFn: () => canvasAPI.getUserCourses(userId),
+    queryKey: ['courses', userId, enrollmentType || 'all'],
+    queryFn: () => canvasAPI.getUserCourses(userId, enrollmentType),
     enabled: !!userId,
   });
 }
@@ -30,3 +30,10 @@ export function useUpcomingEvents(userId: string) {
   });
 }
 
+export function useUserSubmissions(userId: string) {
+  return useQuery<Array<CanvasSubmission & { assignment?: CanvasAssignment; course?: CanvasCourse }>>({
+    queryKey: ['submissions', userId],
+    queryFn: () => canvasAPI.getUserSubmissions(userId),
+    enabled: !!userId,
+  });
+}

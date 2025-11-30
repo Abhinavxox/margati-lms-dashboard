@@ -19,6 +19,7 @@ export interface CanvasCourse {
   enrollment_term_id?: number;
   default_view?: string;
   workflow_state?: string;
+  total_scores?: CanvasGrade;
 }
 
 export interface CanvasAssignment {
@@ -40,6 +41,8 @@ export interface CanvasSubmission {
   score?: number;
   grade?: string;
   workflow_state: string;
+  assignment?: CanvasAssignment;
+  course?: CanvasCourse;
 }
 
 export interface CanvasEnrollment {

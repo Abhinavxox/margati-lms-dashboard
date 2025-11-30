@@ -34,14 +34,18 @@ export class CanvasAPI {
     return response.data;
   }
 
-  async getUserCourses(userId: string): Promise<CanvasCourse[]> {
-    const response = await this.client.get(`/users/${userId}/courses`, {
-      params: {
-        enrollment_type: 'student',
-        include: ['total_scores'],
-      },
-    });
-    console.log('[Canvas API] getUserCourses response:', { userId, count: response.data?.length, data: response.data });
+  async getUserCourses(userId: string, enrollmentType?: string): Promise<CanvasCourse[]> {
+    const params: any = {
+      include: ['total_scores'],
+    };
+    
+    // Only add enrollment_type filter if specified
+    if (enrollmentType) {
+      params.enrollment_type = enrollmentType;
+    }
+    
+    const response = await this.client.get(`/users/${userId}/courses`, { params });
+    console.log('[Canvas API] getUserCourses response:', { userId, enrollmentType, count: response.data?.length, data: response.data });
     return response.data;
   }
 
@@ -90,6 +94,67 @@ export class CanvasAPI {
       }
     );
     return response.data;
+  }
+
+  // Get a specific user's submission for an assignment
+  async getUserSubmission(courseId: string, assignmentId: string, userId: string): Promise<CanvasSubmission | null> {
+    try {
+      const response = await this.client.get(
+        `/courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`,
+        {
+          params: {
+            include: ['submission_history', 'user'],
+          },
+        }
+      );
+      console.log('[Canvas API] getUserSubmission response:', { courseId, assignmentId, userId, data: response.data });
+      return response.data;
+    } catch (error: any) {
+      // 404 means no submission yet
+      if (error.response?.status === 404) {
+        return null;
+      }
+      console.error('[Canvas API] Error getting user submission:', error);
+      throw error;
+    }
+  }
+
+  // Get all submissions for a user across all their courses
+  async getUserSubmissions(userId: string): Promise<Array<CanvasSubmission & { assignment?: CanvasAssignment; course?: CanvasCourse }>> {
+    try {
+      const courses = await this.getUserCourses(userId, 'student');
+      const allSubmissions: Array<CanvasSubmission & { assignment?: CanvasAssignment; course?: CanvasCourse }> = [];
+      
+      for (const course of courses) {
+        try {
+          const assignments = await this.getCourseAssignments(course.id.toString());
+          
+          for (const assignment of assignments) {
+            try {
+              const submission = await this.getUserSubmission(course.id.toString(), assignment.id.toString(), userId);
+              if (submission) {
+                allSubmissions.push({
+                  ...submission,
+                  assignment,
+                  course,
+                });
+              }
+            } catch (error) {
+              // Skip if submission doesn't exist or fails
+              console.error(`[Canvas API] Failed to get submission for assignment ${assignment.id}:`, error);
+            }
+          }
+        } catch (error) {
+          console.error(`[Canvas API] Failed to get assignments for course ${course.id}:`, error);
+        }
+      }
+      
+      console.log('[Canvas API] getUserSubmissions response:', { userId, count: allSubmissions.length });
+      return allSubmissions;
+    } catch (error) {
+      console.error('[Canvas API] Error getting user submissions:', error);
+      return [];
+    }
   }
 
   // Quiz methods
